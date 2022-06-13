@@ -5,6 +5,8 @@ mod hasher;
 pub mod parse;
 pub mod pedersen;
 pub mod proofs;
+#[cfg(target_arch = "wasm32")]
+mod worker_pool;
 
 pub use bigint::U256;
 use curve::{Secp256k1, Tom256k1};
@@ -12,6 +14,21 @@ use parse::*;
 use pedersen::PedersenCycle;
 use proofs::ZkAttestProof;
 use wasm_bindgen::prelude::*;
+
+#[cfg(not(target_arch = "wasm32"))]
+fn build_thread_pool() -> Result<rayon::ThreadPool, String> {
+    rayon::ThreadPoolBuilder::new()
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn build_thread_pool(pool: &worker_pool::WorkerPool) -> Result<rayon::ThreadPool, String> {
+    rayon::ThreadPoolBuilder::new()
+        .build()
+        .spawn_handler(|thread| Ok(pool.run(|| thread.run()).unwrap()))
+        .map_err(|e| e.to_string())
+}
 
 #[wasm_bindgen(js_name = "generateProof")]
 pub async fn generate_proof(input: JsValue, ring: JsValue) -> Result<JsValue, JsValue> {
