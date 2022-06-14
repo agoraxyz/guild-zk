@@ -1,10 +1,14 @@
-use super::point_add::{PointAddCommitmentPoints, PointAddProof, PointAddSecrets};
+use super::auxiliary::AuxiliaryCommitments;
+use super::{ExpCommitmentPoints, ExpCommitments, ExpSecrets};
 use crate::arithmetic::multimult::{MultiMult, Relation};
 use crate::arithmetic::AffinePoint;
 use crate::arithmetic::{Point, Scalar};
 use crate::curve::{Curve, Cycle};
 use crate::hasher::PointHasher;
-use crate::pedersen::*;
+use crate::pedersen::PedersenCycle;
+use crate::proofs::point_add::{PointAddCommitmentPoints, PointAddProof};
+#[cfg(target_arch = "wasm32")]
+use crate::worker_pool::WorkerPool;
 
 use bigint::{Encoding, U256};
 use futures_channel::oneshot;
@@ -35,130 +39,10 @@ pub enum ExpProofVariant<C: Curve, CC: Cycle<C>> {
 
 #[derive(Serialize, Deserialize)]
 pub struct SingleExpProof<C: Curve, CC: Cycle<C>> {
-    a: Point<C>,
-    tx_p: Point<CC>,
-    ty_p: Point<CC>,
-    variant: ExpProofVariant<C, CC>,
-}
-
-#[derive(Clone)]
-pub struct ExpSecrets<C: Curve> {
-    point: AffinePoint<C>,
-    exp: Scalar<C>,
-}
-
-#[derive(Clone)]
-pub struct ExpCommitments<C: Curve, CC: Cycle<C>> {
-    pub(super) px: PedersenCommitment<CC>,
-    pub(super) py: PedersenCommitment<CC>,
-    pub(super) exp: PedersenCommitment<C>,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ExpCommitmentPoints<C: Curve, CC: Cycle<C>> {
-    pub(super) px: Point<CC>,
-    pub(super) py: Point<CC>,
-    pub(super) exp: Point<C>,
-}
-
-impl<C: Curve> ExpSecrets<C> {
-    pub fn new(exp: Scalar<C>, point: AffinePoint<C>) -> Self {
-        Self { exp, point }
-    }
-
-    pub fn commit<R, CC>(
-        &self,
-        rng: &mut R,
-        pedersen: &PedersenCycle<C, CC>,
-    ) -> ExpCommitments<C, CC>
-    where
-        R: CryptoRng + RngCore,
-        CC: Cycle<C>,
-    {
-        ExpCommitments {
-            px: pedersen
-                .cycle()
-                .commit(rng, self.point.x().to_cycle_scalar()),
-            py: pedersen
-                .cycle()
-                .commit(rng, self.point.y().to_cycle_scalar()),
-            exp: pedersen.base().commit(rng, self.exp),
-        }
-    }
-}
-
-impl<C: Curve, CC: Cycle<C>> ExpCommitments<C, CC> {
-    pub fn into_commitments(self) -> ExpCommitmentPoints<C, CC> {
-        ExpCommitmentPoints {
-            px: self.px.into_commitment(),
-            py: self.py.into_commitment(),
-            exp: self.exp.into_commitment(),
-        }
-    }
-}
-
-impl<C: Curve, CC: Cycle<C>> ExpCommitmentPoints<C, CC> {
-    pub fn new(exp: Point<C>, px: Point<CC>, py: Point<CC>) -> Self {
-        Self { exp, px, py }
-    }
-}
-
-struct AuxiliaryCommitments<C: Curve, CC: Cycle<C>> {
-    alpha: Scalar<C>,
-    r: Scalar<C>,
-    a: Point<C>,
-    t: AffinePoint<C>,
-    tx: PedersenCommitment<CC>,
-    ty: PedersenCommitment<CC>,
-}
-
-impl<C: Curve, CC: Cycle<C>> AuxiliaryCommitments<C, CC> {
-    async fn generate<R: CryptoRng + RngCore + Send + Sync + Copy>(
-        rng: R,
-        pedersen: &PedersenCycle<C, CC>,
-        base_gen: &Point<C>,
-        security_param: usize,
-        thread_pool: &rayon::ThreadPool,
-    ) -> Result<Vec<Self>, String> {
-        let (tx, rx) = oneshot::channel();
-        thread_pool.install(|| {
-            let aux_vec: Vec<AuxiliaryCommitments<C, CC>> = (0..security_param)
-                .into_par_iter()
-                .map(|_| {
-                    let mut rng = rng;
-                    // exponent
-                    let mut alpha = Scalar::ZERO;
-                    while alpha == Scalar::ZERO {
-                        // ensure alpha is non-zero
-                        alpha = Scalar::random(&mut rng);
-                    }
-                    // random r scalars
-                    let r = Scalar::random(&mut rng);
-                    // T = g^alpha
-                    let t: AffinePoint<C> = (base_gen * alpha).into();
-                    // A = g^alpha + h^r (essentially a commitment in the base curve)
-                    let a = &t + &(pedersen.base().generator() * r).to_affine();
-
-                    // commitment to Tx
-                    let tx = pedersen.cycle().commit(&mut rng, t.x().to_cycle_scalar());
-                    // commitment to Ty
-                    let ty = pedersen.cycle().commit(&mut rng, t.y().to_cycle_scalar());
-
-                    AuxiliaryCommitments {
-                        alpha,
-                        r,
-                        a,
-                        t,
-                        tx,
-                        ty,
-                    }
-                })
-                .collect();
-            drop(tx.send(aux_vec))
-        });
-
-        rx.await.map_err(|e| e.to_string())
-    }
+    pub a: Point<C>,
+    pub tx_p: Point<CC>,
+    pub ty_p: Point<CC>,
+    pub variant: ExpProofVariant<C, CC>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -169,6 +53,7 @@ pub struct ExpProof<C: Curve, CC: Cycle<C>> {
 impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
     const HASH_ID: &'static [u8] = b"exp-proof";
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn construct<R: CryptoRng + RngCore + Send + Sync + Copy>(
         rng: R,
         base_gen: &Point<C>,
@@ -179,9 +64,9 @@ impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
         q_point: Option<Point<C>>,
         thread_pool: &rayon::ThreadPool,
     ) -> Result<Self, String> {
-        let auxiliaries =
-            AuxiliaryCommitments::generate(rng, pedersen, base_gen, security_param, thread_pool)
-                .await?;
+        let (tx, rx) = oneshot::channel();
+        AuxiliaryCommitments::generate(rng, pedersen, base_gen, security_param, thread_pool, tx);
+        let auxiliaries = rx.await.map_err(|e| e.to_string())?;
 
         // NOTE this has to happen here, not in the thread pool because the
         // point hasher can only be passed through an Arc-Mutex pair which
@@ -199,76 +84,74 @@ impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
 
         let (tx, rx) = oneshot::channel();
 
-        thread_pool.install(|| {
-            let all_exp_proofs = (auxiliaries, challenge)
-                .into_par_iter()
-                .flat_map(|(aux, c_bit)| {
-                    if c_bit {
-                        let tx_r = *aux.tx.randomness();
-                        let ty_r = *aux.ty.randomness();
-                        Ok(SingleExpProof {
-                            a: aux.a,
-                            tx_p: aux.tx.into_commitment(),
-                            ty_p: aux.ty.into_commitment(),
-                            variant: ExpProofVariant::Odd {
-                                alpha: aux.alpha,
-                                r: aux.r,
-                                tx_r,
-                                ty_r,
-                            },
-                        })
-                    } else {
-                        let mut rng = rng;
-                        let z = aux.alpha - secrets.exp;
-                        let mut t1 = base_gen * z;
-                        if let Some(pt) = q_point.as_ref() {
-                            t1 += pt;
-                        }
+        AuxiliaryCommitments::process(
+            auxiliaries,
+            rng,
+            pedersen,
+            base_gen,
+            secrets,
+            commitments,
+            challenge,
+            q_point,
+            thread_pool,
+            tx,
+        );
 
-                        if t1.is_identity() {
-                            return Err("intermediate value is identity".to_owned());
-                        }
+        let proofs = rx.await.map_err(|e| e.to_string())?;
+        Ok(Self { proofs })
+    }
 
-                        // Generate point add proof
-                        let add_secret =
-                            PointAddSecrets::new(t1.into(), secrets.point.clone(), aux.t);
-                        let add_commitments = add_secret.commit_p_only(
-                            &mut rng,
-                            pedersen.cycle(),
-                            commitments.px.clone(),
-                            commitments.py.clone(),
-                            aux.tx.clone(),
-                            aux.ty.clone(),
-                        );
-                        let add_proof = PointAddProof::construct(
-                            &mut rng,
-                            pedersen.cycle(),
-                            &add_commitments,
-                            &add_secret,
-                        );
+    #[cfg(target_arch = "wasm32")]
+    pub async fn construct<R: CryptoRng + RngCore + Send + Sync + Copy>(
+        rng: R,
+        base_gen: &Point<C>,
+        pedersen: &PedersenCycle<C, CC>,
+        secrets: &ExpSecrets<C>,
+        commitments: &ExpCommitments<C, CC>,
+        security_param: usize,
+        q_point: Option<Point<C>>,
+        thread_pool: &rayon::ThreadPool,
+        worker_pool: &WorkerPool,
+    ) -> Result<Self, String> {
+        let (tx, rx) = oneshot::channel();
+        worker_pool.run(move || {
+            AuxiliaryCommitments::generate(rng, pedersen, base_gen, security_param, thread_pool, tx)
+        });
+        let auxiliaries = rx.await.map_err(|e| e.to_string())?;
 
-                        Ok(SingleExpProof {
-                            a: aux.a,
-                            tx_p: aux.tx.into_commitment(),
-                            ty_p: aux.ty.into_commitment(),
-                            variant: ExpProofVariant::Even {
-                                z,
-                                r: aux.r - (*commitments.exp.randomness()),
-                                t1_x: *add_commitments.px.randomness(),
-                                t1_y: *add_commitments.py.randomness(),
-                                add_proof,
-                            },
-                        })
-                    }
-                })
-                .collect::<Vec<_>>();
-            drop(tx.send(all_exp_proofs))
+        // NOTE this has to happen here, not in the thread pool because the
+        // point hasher can only be passed through an Arc-Mutex pair which
+        // inserts points randomly, i.e. the challenge bits will not match
+        let mut point_hasher = PointHasher::new(Self::HASH_ID);
+        point_hasher.insert_point(commitments.px.commitment());
+        point_hasher.insert_point(commitments.py.commitment());
+        for aux in &auxiliaries {
+            point_hasher.insert_point(&aux.a);
+            point_hasher.insert_point(aux.tx.commitment());
+            point_hasher.insert_point(aux.ty.commitment());
+        }
+
+        let challenge = padded_bits(point_hasher.finalize(), security_param);
+
+        let (tx, rx) = oneshot::channel();
+
+        worker_pool.run(move || {
+            AuxiliaryCommitments::process(
+                auxiliaries,
+                rng,
+                pedersen,
+                base_gen,
+                secrets,
+                commitments,
+                challenge,
+                q_point,
+                thread_pool,
+                tx,
+            )
         });
 
-        match rx.await {
-            Ok(proofs) => Ok(Self { proofs }),
-            Err(e) => Err(e.to_string()),
-        }
+        let proofs = rx.await.map_err(|e| e.to_string())?;
+        Ok(Self { proofs })
     }
 
     pub fn verify<R: CryptoRng + RngCore + Send + Sync + Copy>(

@@ -14,6 +14,8 @@ use crate::curve::{Curve, Cycle};
 use crate::hasher::PointHasher;
 use crate::parse::{ParsedProofInput, ParsedRing};
 use crate::pedersen::PedersenCycle;
+#[cfg(target_arch = "wasm32")]
+use crate::worker_pool::WorkerPool;
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -51,6 +53,8 @@ impl<C: Curve, CC: Cycle<C>> ZkAttestProof<C, CC> {
         input: ParsedProofInput<C>,
         ring: &ParsedRing<CC>,
         thread_pool: &rayon::ThreadPool,
+        #[cfg(target_arch = "wasm32")]
+        worker_pool: &WorkerPool,
     ) -> Result<Self, String> {
         let s_inv = input.signature.s.inverse();
         let r_inv = input.signature.r.inverse();
@@ -97,6 +101,8 @@ impl<C: Curve, CC: Cycle<C>> ZkAttestProof<C, CC> {
             SEC_PARAM,
             Some(q_point),
             thread_pool,
+            #[cfg(target_arch = "wasm32")]
+            worker_pool,
         )
         .await?;
 
