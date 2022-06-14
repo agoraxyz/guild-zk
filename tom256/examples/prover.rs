@@ -29,17 +29,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut rng = OsRng;
     let pedersen = PedersenCycle::<Secp256k1, Tom256k1>::new(&mut rng);
 
-    let msg_hash = "0x2c31a901b06d2727f458c7eb5c15eb7a794d69f841970f95c39ac092274c2a5a".to_string();
-    let pubkey =
-            "0x041296d6ed4e96bc378b8a460de783cdfbf58afbe04b355f1c225fb3e0b92cdc6e349d7005833c933898e2b88eae1cf40250c16352ace3915de65ec86f5bb9b349".to_string();
-    let signature =
-            "0xc945f22f92bc9afa7c8929637d3f8694b95a6ae9e276103b2061a0f88d61d8e92aaa9b9eec482d8befd1e1d2a9e2e219f21bd660278aefa9b0641184280cc2d91b".to_string();
+    let msg_hash = "0x9788117298a1450f6002d25f0c21d83bc6001681a2e5e31c748c0f55504b11e9".to_string();
+    let pubkey = "0454e32170dd5a0b7b641aa77daa1f3f31b8df17e51aaba6cfcb310848d26351180b6ac0399d21460443d10072700b64b454d70bfba5e93601536c740bbd099682".to_string();
+    let signature = "0xd2943d5fa0ba2733bcbbd58853c6c1be65388d9198dcb5228e117f49409612a46394afb97a7610d16e7bea0062e71afc2a3039324c80df8ef38d3668164fad2c1c".to_string();
 
     let proof_input = ProofInput {
         msg_hash,
         pubkey,
         signature,
-        index: 7,
+        index: 1,
         guild_id: "almafa".to_string(),
     };
 
