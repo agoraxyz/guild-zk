@@ -40,14 +40,3 @@ jobs:
 
       - name: test-rust
         run: cargo t --color=always
-
-      - name: test-wasm-js
-        run: |
-          cd tom256
-          wasm-pack build --target nodejs
-          cd wasm-test
-          npm install -g ts-node
-          ts-node index.ts
-
-
-
