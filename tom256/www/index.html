@@ -18,11 +18,20 @@
   <body>
     <textarea id='text'>
 {
-  "msgHash": "0x2c31a901b06d2727f458c7eb5c15eb7a794d69f841970f95c39ac092274c2a5a",
-  "pubkey": "0x041296d6ed4e96bc378b8a460de783cdfbf58afbe04b355f1c225fb3e0b92cdc6e349d7005833c933898e2b88eae1cf40250c16352ace3915de65ec86f5bb9b349",
-  "signature": "0xc945f22f92bc9afa7c8929637d3f8694b95a6ae9e276103b2061a0f88d61d8e92aaa9b9eec482d8befd1e1d2a9e2e219f21bd660278aefa9b0641184280cc2d91b",
-  "index": 2,
-  "guildId": "almafa"
+  "input": {
+    "msgHash": "0x2c31a901b06d2727f458c7eb5c15eb7a794d69f841970f95c39ac092274c2a5a",
+    "pubkey": "0x041296d6ed4e96bc378b8a460de783cdfbf58afbe04b355f1c225fb3e0b92cdc6e349d7005833c933898e2b88eae1cf40250c16352ace3915de65ec86f5bb9b349",
+    "signature": "0xc945f22f92bc9afa7c8929637d3f8694b95a6ae9e276103b2061a0f88d61d8e92aaa9b9eec482d8befd1e1d2a9e2e219f21bd660278aefa9b0641184280cc2d91b",
+    "index": 2,
+    "guildId": "almafa"
+  },
+  "ring": [
+      "0x04ddd40afe39c280d2f43f05c070988dae7fbae9cdfd5fb6461acd7657e765e172dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "0x04ccc50afe39c280d2f43f05c070988dae7fbae9cdfd5fb6461acd7657e765e172eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "0x041296d6ed4e96bc378b8a460de783cdfbf58afbe04b355f1c225fb3e0b92cdc6e349d7005833c933898e2b88eae1cf40250c16352ace3915de65ec86f5bb9b349",
+      "0x04ddd40afe39c280d2f43f05c070988dae7fbae9cdfd5fb6461acd7657e765e172dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "0x04ccc50afe39c280d2f43f05c070988dae7fbae9cdfd5fb6461acd7657e765e172eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  ]
 }
     </textarea>
 
@@ -44,7 +53,7 @@
       document.getElementById('render').disabled = true;
       document.getElementById('concurrency').disabled = true;
     </script>
-    <script src='multi-wasm/wasmworkers.js'></script>
+    <script src='zkp-wasm/tom256.js'></script>
     <script src='index.js'></script>
   </body>
 </html>

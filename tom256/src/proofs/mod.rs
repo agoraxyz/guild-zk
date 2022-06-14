@@ -49,6 +49,7 @@ impl<C: Curve, CC: Cycle<C>> ZkAttestProof<C, CC> {
         pedersen: PedersenCycle<C, CC>,
         input: ParsedProofInput<C>,
         ring: &ParsedRing<CC>,
+        thread_pool: &rayon::ThreadPool,
     ) -> Result<Self, String> {
         let s_inv = input.signature.s.inverse();
         let r_inv = input.signature.r.inverse();
@@ -94,6 +95,7 @@ impl<C: Curve, CC: Cycle<C>> ZkAttestProof<C, CC> {
             &exp_commitments,
             SEC_PARAM,
             Some(q_point),
+            thread_pool,
         )
         .await?;
 
@@ -112,6 +114,7 @@ impl<C: Curve, CC: Cycle<C>> ZkAttestProof<C, CC> {
         &self,
         mut rng: R,
         ring: &ParsedRing<CC>,
+        thread_pool: &rayon::ThreadPool,
     ) -> Result<(), String> {
         let r_point_affine = self.r_point.to_affine();
         if r_point_affine.is_identity() {
@@ -145,6 +148,7 @@ impl<C: Curve, CC: Cycle<C>> ZkAttestProof<C, CC> {
             &self.exp_commitments,
             SEC_PARAM,
             Some(q_point),
+            thread_pool,
         )?;
 
         Ok(())
@@ -155,6 +159,7 @@ impl<C: Curve, CC: Cycle<C>> ZkAttestProof<C, CC> {
 mod test {
     use super::ZkAttestProof;
 
+    use crate::build_thread_pool;
     use crate::curve::{Secp256k1, Tom256k1};
     use crate::parse::{parse_ring, ParsedProofInput, ProofInput};
     use crate::pedersen::PedersenCycle;
@@ -163,6 +168,7 @@ mod test {
     async fn zkp_attest_valid() {
         let mut rng = rand_core::OsRng;
         let pedersen_cycle = PedersenCycle::<Secp256k1, Tom256k1>::new(&mut rng);
+        let thread_pool = build_thread_pool().unwrap();
 
         let msg_hash =
             "0x2c31a901b06d2727f458c7eb5c15eb7a794d69f841970f95c39ac092274c2a5a".to_string();
@@ -197,9 +203,12 @@ mod test {
             pedersen_cycle,
             parsed_input,
             &parsed_ring,
+            &thread_pool,
         )
         .await
         .unwrap();
-        assert!(zkattest_proof.verify(rng, &parsed_ring).is_ok());
+        assert!(zkattest_proof
+            .verify(rng, &parsed_ring, &thread_pool)
+            .is_ok());
     }
 }

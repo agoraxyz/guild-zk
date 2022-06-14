@@ -1,5 +1,6 @@
 use rand_core::OsRng;
 use structopt::StructOpt;
+use tom256::build_thread_pool;
 use tom256::curve::{Secp256k1, Tom256k1};
 use tom256::parse::*;
 use tom256::pedersen::PedersenCycle;
@@ -22,6 +23,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let ring_file = File::open(opt.ring)?;
     let ring_reader = BufReader::new(ring_file);
     let ring: Ring = serde_json::from_reader(ring_reader)?;
+    let thread_pool = build_thread_pool()?;
 
     // generate pedersen parameters
     let mut rng = OsRng;
@@ -44,9 +46,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let parsed_input: ParsedProofInput<Secp256k1> = proof_input.try_into()?;
     let parsed_ring = parse_ring(ring)?;
 
-    let zkattest_proof =
-        ZkAttestProof::<Secp256k1, Tom256k1>::construct(rng, pedersen, parsed_input, &parsed_ring)
-            .await?;
+    let zkattest_proof = ZkAttestProof::<Secp256k1, Tom256k1>::construct(
+        rng,
+        pedersen,
+        parsed_input,
+        &parsed_ring,
+        &thread_pool,
+    )
+    .await?;
 
     let mut file = File::create("proof.json")?;
     let proof = serde_json::to_string(&zkattest_proof)?;

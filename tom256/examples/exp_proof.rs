@@ -1,4 +1,5 @@
 use tom256::arithmetic::{Point, Scalar};
+use tom256::build_thread_pool;
 use tom256::curve::{Secp256k1, Tom256k1};
 use tom256::pedersen::PedersenCycle;
 use tom256::proofs::{ExpProof, ExpSecrets};
@@ -11,6 +12,7 @@ async fn main() {
     let mut rng = OsRng;
     let base_gen = Point::<Secp256k1>::GENERATOR;
     let pedersen_cycle = PedersenCycle::<Secp256k1, Tom256k1>::new(&mut rng);
+    let thread_pool = build_thread_pool().unwrap();
 
     let exponent = Scalar::<Secp256k1>::random(&mut rng);
 
@@ -32,6 +34,7 @@ async fn main() {
             &commitments,
             security_param,
             None,
+            &thread_pool,
         )
         .await
         .unwrap();
@@ -45,6 +48,7 @@ async fn main() {
                 &commitments.into_commitments(),
                 security_param,
                 None,
+                &thread_pool,
             )
             .is_ok());
         let verify_elapsed = start.elapsed().as_millis();

@@ -39,17 +39,17 @@ impl WorkerPool {
     /// Returns any error that may happen while a JS web worker is created and a
     /// message is sent to it.
     #[wasm_bindgen(constructor)]
-    pub fn new(initial: usize) -> Result<WorkerPool, JsValue> {
+    pub fn new(concurrency: usize) -> Result<WorkerPool, JsValue> {
         let pool = WorkerPool {
             state: Rc::new(PoolState {
-                workers: RefCell::new(Vec::with_capacity(initial)),
+                workers: RefCell::new(Vec::with_capacity(concurrency)),
                 callback: Closure::wrap(Box::new(|event: Event| {
                     console_log!("unhandled event: {}", event.type_());
                     crate::logv(&event);
                 }) as Box<dyn FnMut(Event)>),
             }),
         };
-        for _ in 0..initial {
+        for _ in 0..concurrency {
             let worker = pool.spawn()?;
             pool.state.push(worker);
         }

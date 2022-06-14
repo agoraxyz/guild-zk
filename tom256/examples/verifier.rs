@@ -1,4 +1,5 @@
 use structopt::StructOpt;
+use tom256::build_thread_pool;
 use tom256::curve::{Secp256k1, Tom256k1};
 use tom256::parse::*;
 use tom256::proofs::ZkAttestProof;
@@ -18,6 +19,7 @@ struct Opt {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let opt = Opt::from_args();
+    let thread_pool = build_thread_pool()?;
 
     let ring_file = File::open(opt.ring)?;
     let ring_reader = BufReader::new(ring_file);
@@ -30,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let proof: ZkAttestProof<Secp256k1, Tom256k1> = serde_json::from_reader(proof_reader)?;
 
-    proof.verify(rand_core::OsRng, &parsed_ring)?;
+    proof.verify(rand_core::OsRng, &parsed_ring, &thread_pool)?;
     println!("Proof OK");
     Ok(())
 }

@@ -1,10 +1,10 @@
+use super::point_add::{PointAddCommitmentPoints, PointAddProof, PointAddSecrets};
 use crate::arithmetic::multimult::{MultiMult, Relation};
 use crate::arithmetic::AffinePoint;
 use crate::arithmetic::{Point, Scalar};
 use crate::curve::{Curve, Cycle};
 use crate::hasher::PointHasher;
 use crate::pedersen::*;
-use crate::proofs::point_add::{PointAddCommitmentPoints, PointAddProof, PointAddSecrets};
 
 use bigint::{Encoding, U256};
 use futures_channel::oneshot;
@@ -128,11 +128,8 @@ impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
         commitments: &ExpCommitments<C, CC>,
         security_param: usize,
         q_point: Option<Point<C>>,
+        thread_pool: &rayon::ThreadPool,
     ) -> Result<Self, String> {
-        let thread_pool = rayon::ThreadPoolBuilder::new()
-            .build()
-            .map_err(|e| e.to_string())?;
-
         let (tx, rx) = oneshot::channel();
 
         thread_pool.install(|| {
@@ -268,6 +265,7 @@ impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
         commitments: &ExpCommitmentPoints<C, CC>,
         security_param: usize,
         q_point: Option<Point<C>>,
+        thread_pool: &rayon::ThreadPool,
     ) -> Result<(), String> {
         if security_param > self.proofs.len() {
             return Err("security level not achieved".to_owned());
@@ -299,10 +297,6 @@ impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
         // TODO do we need indices (sec param == proof.len())
         //let indices = generate_indices(security_param, self.proofs.len(), &mut rng);
         let challenge = padded_bits(point_hasher.finalize(), self.proofs.len());
-
-        let thread_pool = rayon::ThreadPoolBuilder::new()
-            .build()
-            .map_err(|e| e.to_string())?;
 
         thread_pool.install(|| {
             (&self.proofs, challenge)
@@ -454,6 +448,7 @@ fn padded_bits(number: U256, length: usize) -> Vec<bool> {
 mod test {
     use super::*;
 
+    use crate::build_thread_pool;
     use crate::curve::{Secp256k1, Tom256k1};
     use rand_core::OsRng;
 
@@ -479,6 +474,7 @@ mod test {
         let mut rng = OsRng;
         let base_gen = Point::<Secp256k1>::GENERATOR;
         let pedersen = PedersenCycle::<Secp256k1, Tom256k1>::new(&mut rng);
+        let thread_pool = build_thread_pool().unwrap();
 
         let exponent = Scalar::<Secp256k1>::random(&mut rng);
         let result = Point::<Secp256k1>::GENERATOR.scalar_mul(&exponent);
@@ -495,6 +491,7 @@ mod test {
             &commitments,
             security_param,
             None,
+            &thread_pool,
         )
         .await
         .unwrap();
@@ -506,7 +503,8 @@ mod test {
                 &pedersen,
                 &commitments.into_commitments(),
                 security_param,
-                None
+                None,
+                &thread_pool,
             )
             .is_ok());
     }
@@ -516,6 +514,7 @@ mod test {
         let mut rng = OsRng;
         let base_gen = Point::<Secp256k1>::GENERATOR;
         let pedersen = PedersenCycle::<Secp256k1, Tom256k1>::new(&mut rng);
+        let thread_pool = build_thread_pool().unwrap();
 
         let q_point = Point::<Secp256k1>::GENERATOR.double();
         let exponent = Scalar::<Secp256k1>::random(&mut rng);
@@ -533,6 +532,7 @@ mod test {
             &commitments,
             security_param,
             Some(q_point.clone()),
+            &thread_pool,
         )
         .await
         .unwrap();
@@ -545,6 +545,7 @@ mod test {
                 &commitments.into_commitments(),
                 security_param,
                 Some(q_point),
+                &thread_pool,
             )
             .is_ok())
     }
@@ -554,6 +555,7 @@ mod test {
         let mut rng = OsRng;
         let base_gen = Point::<Secp256k1>::GENERATOR;
         let pedersen = PedersenCycle::<Secp256k1, Tom256k1>::new(&mut rng);
+        let thread_pool = build_thread_pool().unwrap();
 
         let exponent = Scalar::<Secp256k1>::random(&mut rng);
         let result = Point::<Secp256k1>::GENERATOR.scalar_mul(&(exponent + Scalar::ONE));
@@ -570,6 +572,7 @@ mod test {
             &commitments,
             security_param,
             None,
+            &thread_pool,
         )
         .await
         .unwrap();
@@ -581,7 +584,8 @@ mod test {
                 &pedersen,
                 &commitments.into_commitments(),
                 security_param,
-                None
+                None,
+                &thread_pool
             )
             .is_err());
     }
