@@ -24,6 +24,7 @@ const SEC_PARAM: usize = 60;
 #[cfg(test)]
 const SEC_PARAM: usize = 10;
 
+const MSG_PREFIX: &str = "\x19Ethereum Signed Message:\n";
 const JOIN_GUILD_MSG: &str = "#zkp/join.guild.xyz/";
 
 /// Zero-knowledge proof consisting of an ECDSA and a Groth-Kohlweiss
@@ -122,7 +123,9 @@ impl<C: Curve, CC: Cycle<C>> ZkAttestProof<C, CC> {
         }
 
         let expected_msg = JOIN_GUILD_MSG.to_string() + &self.guild_id;
-        let hasher = PointHasher::new(expected_msg.as_bytes());
+        let expected_msg_len = expected_msg.as_bytes().len().to_string();
+        let preimage = format!("{}{}{}", MSG_PREFIX, expected_msg_len, expected_msg);
+        let hasher = PointHasher::new(preimage.as_bytes());
         let expected_hash = Scalar::<C>::new(hasher.finalize());
         if expected_hash != self.msg_hash {
             return Err("Signed message hash mismatch".to_string());
