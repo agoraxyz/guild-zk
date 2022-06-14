@@ -112,26 +112,15 @@ struct AuxiliaryCommitments<C: Curve, CC: Cycle<C>> {
     ty: PedersenCommitment<CC>,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ExpProof<C: Curve, CC: Cycle<C>> {
-    proofs: Vec<SingleExpProof<C, CC>>,
-}
-
-impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
-    const HASH_ID: &'static [u8] = b"exp-proof";
-
-    pub async fn construct<R: CryptoRng + RngCore + Send + Sync + Copy>(
+impl<C: Curve, CC: Cycle<C>> AuxiliaryCommitments<C, CC> {
+    async fn generate<R: CryptoRng + RngCore + Send + Sync + Copy>(
         rng: R,
-        base_gen: &Point<C>,
         pedersen: &PedersenCycle<C, CC>,
-        secrets: &ExpSecrets<C>,
-        commitments: &ExpCommitments<C, CC>,
+        base_gen: &Point<C>,
         security_param: usize,
-        q_point: Option<Point<C>>,
         thread_pool: &rayon::ThreadPool,
-    ) -> Result<Self, String> {
+    ) -> Result<Vec<Self>, String> {
         let (tx, rx) = oneshot::channel();
-
         thread_pool.install(|| {
             let aux_vec: Vec<AuxiliaryCommitments<C, CC>> = (0..security_param)
                 .into_par_iter()
@@ -168,7 +157,32 @@ impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
             drop(tx.send(aux_vec))
         });
 
-        let auxiliaries = rx.await.map_err(|e| e.to_string())?;
+        rx.await.map_err(|e| e.to_string())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ExpProof<C: Curve, CC: Cycle<C>> {
+    proofs: Vec<SingleExpProof<C, CC>>,
+}
+
+impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
+    const HASH_ID: &'static [u8] = b"exp-proof";
+
+    pub async fn construct<R: CryptoRng + RngCore + Send + Sync + Copy>(
+        rng: R,
+        base_gen: &Point<C>,
+        pedersen: &PedersenCycle<C, CC>,
+        secrets: &ExpSecrets<C>,
+        commitments: &ExpCommitments<C, CC>,
+        security_param: usize,
+        q_point: Option<Point<C>>,
+        thread_pool: &rayon::ThreadPool,
+    ) -> Result<Self, String> {
+        let auxiliaries =
+            AuxiliaryCommitments::generate(rng, pedersen, base_gen, security_param, thread_pool)
+                .await?;
+
         // NOTE this has to happen here, not in the thread pool because the
         // point hasher can only be passed through an Arc-Mutex pair which
         // inserts points randomly, i.e. the challenge bits will not match

@@ -210,8 +210,8 @@ mod test {
         )
         .await
         .unwrap();
-        assert!(zkattest_proof
-            .verify(rng, &parsed_ring, &thread_pool)
+        assert!(dbg!(zkattest_proof
+            .verify(rng, &parsed_ring, &thread_pool))
             .is_ok());
     }
 }

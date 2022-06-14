@@ -70,10 +70,8 @@ pub async fn generate_proof(
 
     let thread_pool = build_thread_pool(&worker_pool)?;
 
-    let zk_attest_proof =
-        ZkAttestProof::construct(rng, pedersen, input, &ring, &thread_pool).await?;
-
-    JsValue::from_serde(&zk_attest_proof).map_err(|e| JsValue::from(e.to_string()))
+    let proof = ZkAttestProof::construct(rng, pedersen, input, &ring, &thread_pool).await?;
+    JsValue::from_serde(&proof).map_err(|e| e.to_string().into())
 }
 
 // This function is only for wasm test purposes as the
