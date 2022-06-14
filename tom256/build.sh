@@ -18,6 +18,6 @@ RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
 # Note the usage of `--target no-modules` here which is required for passing
 # the memory import to each wasm module.
 wasm-bindgen \
-  target/wasm32-unknown-unknown/release/tom256.wasm \
+  ../target/wasm32-unknown-unknown/release/tom256.wasm \
   --out-dir www/zkp-wasm \
   --target no-modules

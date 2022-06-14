@@ -1,4 +1,11 @@
 #![feature(int_log)]
+
+// this macro needs to come before 'mod worker_pool'
+#[cfg(target_arch = "wasm32")]
+macro_rules! console_log {
+    ($($t:tt)*) => (crate::log(&format_args!($($t)*).to_string()))
+}
+
 pub mod arithmetic;
 pub mod curve;
 mod hasher;
@@ -29,15 +36,11 @@ pub fn build_thread_pool() -> Result<rayon::ThreadPool, String> {
 #[cfg(target_arch = "wasm32")]
 fn build_thread_pool(pool: &worker_pool::WorkerPool) -> Result<rayon::ThreadPool, String> {
     rayon::ThreadPoolBuilder::new()
-        .build()
         .spawn_handler(|thread| Ok(pool.run(|| thread.run()).unwrap()))
+        .build()
         .map_err(|e| e.to_string())
 }
 
-#[cfg(target_arch = "wasm32")]
-macro_rules! console_log {
-    ($($t:tt)*) => (crate::log(&format_args!($($t)*).to_string()))
-}
 
 #[wasm_bindgen]
 extern "C" {
@@ -52,7 +55,7 @@ extern "C" {
 pub async fn generate_proof(
     input: JsValue,
     ring: JsValue,
-    worker_pool: &worker_pool::WorkerPool,
+    worker_pool: worker_pool::WorkerPool,
 ) -> Result<JsValue, JsValue> {
     let mut rng = rand_core::OsRng;
     let pedersen = PedersenCycle::<Secp256k1, Tom256k1>::new(&mut rng);
@@ -65,7 +68,7 @@ pub async fn generate_proof(
     let ring: ParsedRing<Tom256k1> =
         parse_ring(ring.into_serde::<Ring>().map_err(|e| e.to_string())?)?;
 
-    let thread_pool = build_thread_pool(&worker_pool);
+    let thread_pool = build_thread_pool(&worker_pool)?;
 
     let zk_attest_proof =
         ZkAttestProof::construct(rng, pedersen, input, &ring, &thread_pool).await?;
@@ -81,7 +84,7 @@ pub async fn generate_proof(
 pub fn verify_proof(
     proof: JsValue,
     ring: JsValue,
-    worker_pool: &worker_pool::WorkerPool,
+    worker_pool: worker_pool::WorkerPool,
 ) -> Result<JsValue, JsValue> {
     let proof: ZkAttestProof<Secp256k1, Tom256k1> =
         proof.into_serde().map_err(|e| e.to_string())?;
@@ -89,7 +92,7 @@ pub fn verify_proof(
     let ring: ParsedRing<Tom256k1> =
         parse_ring(ring.into_serde::<Ring>().map_err(|e| e.to_string())?)?;
 
-    let thread_pool = build_thread_pool(&worker_pool);
+    let thread_pool = build_thread_pool(&worker_pool)?;
 
     proof.verify(rand_core::OsRng, &ring, &thread_pool)?;
     Ok(JsValue::from(true))

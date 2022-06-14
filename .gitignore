@@ -1,5 +1,6 @@
 .env
 /target
+zkp-wasm/
 Cargo.lock
 *.data
 *.svg
