@@ -16,9 +16,11 @@ function loadWasm() {
 
 loadWasm();
 
-const { generateProof } = wasm_bindgen;
+const { generateProof, WorkerPool} = wasm_bindgen;
 
 function run() {
+  // use max num of threads
+  pool = new WorkerPool(navigator.hardwareConcurrency);
   // Configure various buttons and such.
   button.onclick = function() {
     button.disabled = true;
@@ -85,6 +87,5 @@ function process(zkpInput) {
     rendering.stop();
     rendering = null;
   }
-  let proof = new Text(generateProof(text.input, text.ring));
-  rendering = new State();
+  rendering = new State(generateProof(zkpInput.input, zkpInput.ring, pool));
 }

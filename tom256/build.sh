@@ -21,3 +21,5 @@ wasm-bindgen \
   ../target/wasm32-unknown-unknown/release/tom256.wasm \
   --out-dir www/zkp-wasm \
   --target no-modules
+
+python www/server.py
