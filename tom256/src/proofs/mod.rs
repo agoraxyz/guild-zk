@@ -46,21 +46,24 @@ pub struct ZkAttestProof<C: Curve, CC: Cycle<C>> {
     pub guild_id: String,
 }
 
-impl<C: Curve, CC: Cycle<C>> ZkAttestProof<C, CC> {
-    pub async fn construct<R: CryptoRng + RngCore + Send + Sync + Copy>(
+impl<C: Curve + 'static, CC: Cycle<C> + 'static> ZkAttestProof<C, CC> {
+    pub async fn construct<R: CryptoRng + RngCore + Send + Sync + Copy + 'static>(
         mut rng: R,
-        pedersen: PedersenCycle<C, CC>,
+        pedersen: &'static PedersenCycle<C, CC>,
         input: ParsedProofInput<C>,
         ring: &ParsedRing<CC>,
-        thread_pool: &rayon::ThreadPool,
-        #[cfg(target_arch = "wasm32")]
-        worker_pool: &WorkerPool,
+        thread_pool: &'static rayon::ThreadPool,
+        #[cfg(target_arch = "wasm32")] worker_pool: WorkerPool,
     ) -> Result<Self, String> {
         let s_inv = input.signature.s.inverse();
         let r_inv = input.signature.r.inverse();
         let u1 = s_inv * input.msg_hash;
         let u2 = s_inv * input.signature.r;
-        let r_point = Point::<C>::GENERATOR.double_mul(&u1, &Point::from(&input.pubkey), &u2);
+        let r_point = Box::leak(Box::new(Point::<C>::GENERATOR.double_mul(
+            &u1,
+            &Point::from(&input.pubkey),
+            &u2,
+        )));
         let s1 = r_inv * input.signature.s;
         let z1 = r_inv * input.msg_hash;
         let q_point = &Point::<C>::GENERATOR * z1;
@@ -94,10 +97,10 @@ impl<C: Curve, CC: Cycle<C>> ZkAttestProof<C, CC> {
 
         let signature_proof = ExpProof::construct(
             rng,
-            &r_point,
-            &pedersen,
-            &exp_secrets,
-            &exp_commitments,
+            r_point,
+            pedersen,
+            exp_secrets,
+            exp_commitments.clone(),
             SEC_PARAM,
             Some(q_point),
             thread_pool,
@@ -107,9 +110,9 @@ impl<C: Curve, CC: Cycle<C>> ZkAttestProof<C, CC> {
         .await?;
 
         Ok(Self {
-            pedersen,
+            pedersen: pedersen.clone(),
             msg_hash: input.msg_hash,
-            r_point,
+            r_point: r_point.clone(),
             exp_commitments: exp_commitments.into_commitments(),
             signature_proof,
             membership_proof,
@@ -216,8 +219,6 @@ mod test {
         )
         .await
         .unwrap();
-        assert!(dbg!(zkattest_proof
-            .verify(rng, &parsed_ring, &thread_pool))
-            .is_ok());
+        assert!(dbg!(zkattest_proof.verify(rng, &parsed_ring, &thread_pool)).is_ok());
     }
 }

@@ -41,7 +41,6 @@ fn build_thread_pool(pool: &worker_pool::WorkerPool) -> Result<rayon::ThreadPool
         .map_err(|e| e.to_string())
 }
 
-
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
@@ -58,7 +57,9 @@ pub async fn generate_proof(
     worker_pool: worker_pool::WorkerPool,
 ) -> Result<JsValue, JsValue> {
     let mut rng = rand_core::OsRng;
-    let pedersen = PedersenCycle::<Secp256k1, Tom256k1>::new(&mut rng);
+    let pedersen = Box::leak(Box::new(PedersenCycle::<Secp256k1, Tom256k1>::new(
+        &mut rng,
+    )));
 
     let input: ParsedProofInput<Secp256k1> = input
         .into_serde::<ProofInput>()
@@ -68,9 +69,10 @@ pub async fn generate_proof(
     let ring: ParsedRing<Tom256k1> =
         parse_ring(ring.into_serde::<Ring>().map_err(|e| e.to_string())?)?;
 
-    let thread_pool = build_thread_pool(&worker_pool)?;
+    let thread_pool = Box::leak(Box::new(build_thread_pool(&worker_pool)?));
 
-    let proof = ZkAttestProof::construct(rng, pedersen, input, &ring, thread_pool, &worker_pool).await?;
+    let proof =
+        ZkAttestProof::construct(rng, pedersen, input, &ring, thread_pool, worker_pool).await?;
     JsValue::from_serde(&proof).map_err(|e| e.to_string().into())
 }
 

@@ -50,7 +50,7 @@ pub struct ExpProof<C: Curve, CC: Cycle<C>> {
     proofs: Vec<SingleExpProof<C, CC>>,
 }
 
-impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
+impl<CC: Cycle<C> + 'static, C: Curve + 'static> ExpProof<C, CC> {
     const HASH_ID: &'static [u8] = b"exp-proof";
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -102,21 +102,30 @@ impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
     }
 
     #[cfg(target_arch = "wasm32")]
-    pub async fn construct<R: CryptoRng + RngCore + Send + Sync + Copy>(
+    pub async fn construct<R: CryptoRng + RngCore + Send + Sync + Copy + 'static>(
         rng: R,
-        base_gen: &Point<C>,
-        pedersen: &PedersenCycle<C, CC>,
-        secrets: &ExpSecrets<C>,
-        commitments: &ExpCommitments<C, CC>,
+        base_gen: &'static Point<C>,
+        pedersen: &'static PedersenCycle<C, CC>,
+        secrets: ExpSecrets<C>,
+        commitments: ExpCommitments<C, CC>,
         security_param: usize,
         q_point: Option<Point<C>>,
-        thread_pool: &rayon::ThreadPool,
-        worker_pool: &WorkerPool,
+        thread_pool: &'static rayon::ThreadPool,
+        worker_pool: WorkerPool,
     ) -> Result<Self, String> {
         let (tx, rx) = oneshot::channel();
-        worker_pool.run(move || {
-            AuxiliaryCommitments::generate(rng, pedersen, base_gen, security_param, thread_pool, tx)
-        });
+        worker_pool
+            .run(move || {
+                AuxiliaryCommitments::generate(
+                    rng,
+                    &pedersen.clone(),
+                    &base_gen.clone(),
+                    security_param,
+                    thread_pool,
+                    tx,
+                )
+            })
+            .map_err(|_| "Worker pool failure".to_string())?;
         let auxiliaries = rx.await.map_err(|e| e.to_string())?;
 
         // NOTE this has to happen here, not in the thread pool because the
@@ -135,20 +144,22 @@ impl<CC: Cycle<C>, C: Curve> ExpProof<C, CC> {
 
         let (tx, rx) = oneshot::channel();
 
-        worker_pool.run(move || {
-            AuxiliaryCommitments::process(
-                auxiliaries,
-                rng,
-                pedersen,
-                base_gen,
-                secrets,
-                commitments,
-                challenge,
-                q_point,
-                thread_pool,
-                tx,
-            )
-        });
+        worker_pool
+            .run(move || {
+                AuxiliaryCommitments::process(
+                    auxiliaries,
+                    rng,
+                    &pedersen,
+                    &base_gen,
+                    &secrets,
+                    &commitments,
+                    challenge,
+                    q_point,
+                    thread_pool,
+                    tx,
+                )
+            })
+            .map_err(|_| "Worker pool failure".to_string())?;
 
         let proofs = rx.await.map_err(|e| e.to_string())?;
         Ok(Self { proofs })
