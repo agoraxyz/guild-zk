@@ -26,6 +26,7 @@ use futures_channel::oneshot;
 use rand_core::OsRng;
 use rayon::prelude::*;
 use wasm_bindgen::prelude::*;
+pub use wasm_bindgen_rayon::init_thread_pool;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn build_thread_pool() -> Result<rayon::ThreadPool, String> {
@@ -35,7 +36,10 @@ pub fn build_thread_pool() -> Result<rayon::ThreadPool, String> {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn build_thread_pool(pool: &worker_pool::WorkerPool, concurrency: usize) -> Result<rayon::ThreadPool, String> {
+fn build_thread_pool(
+    pool: &worker_pool::WorkerPool,
+    concurrency: usize,
+) -> Result<rayon::ThreadPool, String> {
     rayon::ThreadPoolBuilder::new()
         .num_threads(concurrency)
         .spawn_handler(|thread| Ok(pool.run(|| thread.run()).unwrap()))
@@ -102,11 +106,15 @@ pub fn generate_exp_input(input: JsValue) -> Result<JsValue, JsValue> {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_name = "generateExpProof")]
-pub fn generate_exp_proof(input: JsValue, worker_pool: worker_pool::WorkerPool, concurrency: u32) -> Result<js_sys::Promise, JsValue> {
+pub fn generate_exp_proof(
+    input: JsValue,
+    worker_pool: worker_pool::WorkerPool,
+    concurrency: u32,
+) -> Result<js_sys::Promise, JsValue> {
     let thread_pool = build_thread_pool(&worker_pool, concurrency as usize)?;
     let input: ExpProofInput<Secp256k1, Tom256k1> =
         input.into_serde().map_err(|e| e.to_string())?;
-    let security_param = 20_usize; // TODO
+    let security_param = 60_usize; // TODO
     let (tx, rx) = oneshot::channel();
     worker_pool.run(move || {
         thread_pool.install(|| {
@@ -128,9 +136,15 @@ pub fn generate_exp_proof(input: JsValue, worker_pool: worker_pool::WorkerPool, 
                     // A = g^alpha + h^r (essentially a commitment in the base curve)
                     let a = &t + &(input.pedersen.base().generator() * r).to_affine();
                     // commitment to Tx
-                    let tx = input.pedersen.cycle().commit(&mut rng, t.x().to_cycle_scalar());
+                    let tx = input
+                        .pedersen
+                        .cycle()
+                        .commit(&mut rng, t.x().to_cycle_scalar());
                     // commitment to Ty
-                    let ty = input.pedersen.cycle().commit(&mut rng, t.y().to_cycle_scalar());
+                    let ty = input
+                        .pedersen
+                        .cycle()
+                        .commit(&mut rng, t.y().to_cycle_scalar());
 
                     AuxiliaryCommitments {
                         alpha,

@@ -20,6 +20,7 @@ serdect = "0.1.0"
 sha3 = "0.10.1"
 wasm-bindgen = { version = "0.2.80", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4"
+wasm-bindgen-rayon = "1.0"
 [dependencies.web-sys]
 version = "0.3.23"
 features = [
@@ -48,3 +49,9 @@ harness = false
 name = "scalar_ops"
 path = "benches/scalar_ops.rs"
 harness = false
+
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "target-feature=+atomics,+bulk-memory"]
+
+[unstable]
+build-std = ["panic_abort", "std"]
