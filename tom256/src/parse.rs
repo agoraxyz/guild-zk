@@ -1,8 +1,10 @@
-use crate::arithmetic::{AffinePoint, FieldElement, Modular, Scalar};
-use crate::curve::Curve;
+use crate::arithmetic::*;
+use crate::curve::{Curve, Cycle};
+use crate::pedersen::PedersenCycle;
+use crate::proofs::{ExpSecrets, ExpCommitments};
 use crate::U256;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub type Ring = Vec<String>;
 pub type ParsedRing<C> = Vec<Scalar<C>>;
@@ -40,6 +42,15 @@ impl<C: Curve> TryFrom<ProofInput> for ParsedProofInput<C> {
             guild_id: rhs.guild_id,
         })
     }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ExpProofInput<C: Curve, CC: Cycle<C>> {
+    pub pedersen: PedersenCycle<C, CC>,
+    pub secrets: ExpSecrets<C>,
+    pub commitments: ExpCommitments<C, CC>,
+    pub r_point: Point<C>,
+    pub q_point: Point<C>,
 }
 
 pub struct Signature<C> {

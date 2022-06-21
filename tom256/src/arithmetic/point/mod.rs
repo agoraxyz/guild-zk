@@ -13,7 +13,7 @@ pub struct Point<C: Curve> {
 
 // z can only be 1 (general point) or 0 (identity)
 // This invariable is preserved in the methods
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AffinePoint<C: Curve> {
     x: FieldElement<C>,
     y: FieldElement<C>,

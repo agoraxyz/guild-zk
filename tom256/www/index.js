@@ -16,7 +16,7 @@ function loadWasm() {
 
 loadWasm();
 
-const { generateProof, WorkerPool} = wasm_bindgen;
+const { generateExpInput, generateExpProof, WorkerPool} = wasm_bindgen;
 
 function run() {
   // use max num of threads
@@ -87,5 +87,12 @@ function process(zkpInput) {
     rendering.stop();
     rendering = null;
   }
-  rendering = new State(generateProof(zkpInput.input, zkpInput.ring, pool));
+  console.log("BELLO");
+  let expInput; 
+  try {
+    expInput = generateExpInput(zkpInput.input);
+  } catch(error) {
+    console.error(error);
+  }
+  rendering = new State(generateExpProof(expInput, pool, concurrency.value));
 }

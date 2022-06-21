@@ -1,6 +1,7 @@
 mod auxiliary;
 mod proof;
 
+pub use auxiliary::*;
 pub use proof::ExpProof;
 
 use crate::arithmetic::AffinePoint;
@@ -11,7 +12,7 @@ use crate::pedersen::*;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ExpSecrets<C: Curve> {
     point: AffinePoint<C>,
     exp: Scalar<C>,
@@ -43,11 +44,11 @@ impl<C: Curve> ExpSecrets<C> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ExpCommitments<C: Curve, CC: Cycle<C>> {
-    pub(super) px: PedersenCommitment<CC>,
-    pub(super) py: PedersenCommitment<CC>,
-    pub(super) exp: PedersenCommitment<C>,
+    pub px: PedersenCommitment<CC>,
+    pub py: PedersenCommitment<CC>,
+    pub exp: PedersenCommitment<C>,
 }
 
 impl<C: Curve, CC: Cycle<C>> ExpCommitments<C, CC> {

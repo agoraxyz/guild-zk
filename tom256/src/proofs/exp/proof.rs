@@ -6,7 +6,7 @@ use crate::arithmetic::{Point, Scalar};
 use crate::curve::{Curve, Cycle};
 use crate::hasher::PointHasher;
 use crate::pedersen::PedersenCycle;
-use crate::proofs::point_add::{PointAddCommitmentPoints, PointAddProof};
+use crate::proofs::point_add::{PointAddCommitmentPoints, PointAddProof, PointAddSecrets};
 #[cfg(target_arch = "wasm32")]
 use crate::worker_pool::WorkerPool;
 
@@ -116,14 +116,41 @@ impl<CC: Cycle<C> + 'static, C: Curve + 'static> ExpProof<C, CC> {
         let (tx, rx) = oneshot::channel();
         worker_pool
             .run(move || {
-                AuxiliaryCommitments::generate(
-                    rng,
-                    &pedersen.clone(),
-                    &base_gen.clone(),
-                    security_param,
-                    thread_pool,
-                    tx,
-                )
+                thread_pool.install(|| {
+                    let aux_vec: Vec<AuxiliaryCommitments<C, CC>> = (0..security_param)
+                        .into_par_iter()
+                        .map(|_| {
+                            let mut rng = rng;
+                            // exponent
+                            let mut alpha = Scalar::ZERO;
+                            while alpha == Scalar::ZERO {
+                                // ensure alpha is non-zero
+                                alpha = Scalar::random(&mut rng);
+                            }
+                            // random r scalars
+                            let r = Scalar::random(&mut rng);
+                            // T = g^alpha
+                            let t: AffinePoint<C> = (base_gen * alpha).into();
+                            // A = g^alpha + h^r (essentially a commitment in the base curve)
+                            let a = &t + &(pedersen.base().generator() * r).to_affine();
+
+                            // commitment to Tx
+                            let tx = pedersen.cycle().commit(&mut rng, t.x().to_cycle_scalar());
+                            // commitment to Ty
+                            let ty = pedersen.cycle().commit(&mut rng, t.y().to_cycle_scalar());
+
+                            AuxiliaryCommitments {
+                                alpha,
+                                r,
+                                a,
+                                t,
+                                tx,
+                                ty,
+                            }
+                        })
+                        .collect();
+                    drop(tx.send(aux_vec))
+                })
             })
             .map_err(|_| "Worker pool failure".to_string())?;
         let auxiliaries = rx.await.map_err(|e| e.to_string())?;
@@ -146,18 +173,71 @@ impl<CC: Cycle<C> + 'static, C: Curve + 'static> ExpProof<C, CC> {
 
         worker_pool
             .run(move || {
-                AuxiliaryCommitments::process(
-                    auxiliaries,
-                    rng,
-                    &pedersen,
-                    &base_gen,
-                    &secrets,
-                    &commitments,
-                    challenge,
-                    q_point,
-                    thread_pool,
-                    tx,
-                )
+                thread_pool.install(|| {
+                    let all_exp_proofs = (auxiliaries, challenge)
+                        .into_par_iter()
+                        .flat_map(|(aux, c_bit)| {
+                            if c_bit {
+                                let tx_r = *aux.tx.randomness();
+                                let ty_r = *aux.ty.randomness();
+                                Ok(SingleExpProof {
+                                    a: aux.a,
+                                    tx_p: aux.tx.into_commitment(),
+                                    ty_p: aux.ty.into_commitment(),
+                                    variant: ExpProofVariant::Odd {
+                                        alpha: aux.alpha,
+                                        r: aux.r,
+                                        tx_r,
+                                        ty_r,
+                                    },
+                                })
+                            } else {
+                                let mut rng = rng;
+                                let z = aux.alpha - secrets.exp;
+                                let mut t1 = base_gen * z;
+                                if let Some(pt) = q_point.as_ref() {
+                                    t1 += pt;
+                                }
+
+                                if t1.is_identity() {
+                                    return Err("intermediate value is identity".to_owned());
+                                }
+
+                                // Generate point add proof
+                                let add_secret =
+                                    PointAddSecrets::new(t1.into(), secrets.point.clone(), aux.t);
+                                let add_commitments = add_secret.commit_p_only(
+                                    &mut rng,
+                                    pedersen.cycle(),
+                                    commitments.px.clone(),
+                                    commitments.py.clone(),
+                                    aux.tx.clone(),
+                                    aux.ty.clone(),
+                                );
+                                let add_proof = PointAddProof::construct(
+                                    &mut rng,
+                                    pedersen.cycle(),
+                                    &add_commitments,
+                                    &add_secret,
+                                );
+
+                                Ok(SingleExpProof {
+                                    a: aux.a,
+                                    tx_p: aux.tx.into_commitment(),
+                                    ty_p: aux.ty.into_commitment(),
+                                    variant: ExpProofVariant::Even {
+                                        z,
+                                        r: aux.r - (*commitments.exp.randomness()),
+                                        t1_x: *add_commitments.px.randomness(),
+                                        t1_y: *add_commitments.py.randomness(),
+                                        add_proof,
+                                    },
+                                })
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                    drop(tx.send(all_exp_proofs))
+                })
             })
             .map_err(|_| "Worker pool failure".to_string())?;
 

@@ -6,7 +6,7 @@ mod point_add;
 mod utils;
 
 // TODO these does not need to be public
-pub use exp::{ExpCommitmentPoints, ExpCommitments, ExpProof, ExpSecrets};
+pub use exp::*;
 pub use membership::MembershipProof;
 
 use crate::arithmetic::{Modular, Point, Scalar};
@@ -51,7 +51,7 @@ impl<C: Curve + 'static, CC: Cycle<C> + 'static> ZkAttestProof<C, CC> {
         mut rng: R,
         pedersen: &'static PedersenCycle<C, CC>,
         input: ParsedProofInput<C>,
-        ring: &ParsedRing<CC>,
+        ring: ParsedRing<CC>,
         thread_pool: &'static rayon::ThreadPool,
         #[cfg(target_arch = "wasm32")] worker_pool: WorkerPool,
     ) -> Result<Self, String> {
@@ -84,7 +84,7 @@ impl<C: Curve + 'static, CC: Cycle<C> + 'static> ZkAttestProof<C, CC> {
             pedersen.cycle(),
             &commitment_to_pk_x,
             input.index,
-            ring,
+            &ring,
         )?;
 
         // generate ECDSA proof on signature
