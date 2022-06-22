@@ -35,7 +35,7 @@
 }
     </textarea>
 
-    <button disabled id='render'>Loading wasm...</button>
+    <button disabled id='compute'>Loading wasm...</button>
     <div class='concurrency'>
       <p id='concurrency-amt'>Concurrency: 1</p>
       <br/>
@@ -50,7 +50,7 @@
     <canvas id='canvas'></canvas>
 
     <script>
-      document.getElementById('render').disabled = true;
+      document.getElementById('compute').disabled = true;
       document.getElementById('concurrency').disabled = true;
     </script>
     <script src='zkp-wasm/tom256.js'></script>

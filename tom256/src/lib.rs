@@ -110,76 +110,48 @@ pub fn generate_exp_proof(
     input: JsValue,
     worker_pool: worker_pool::WorkerPool,
     concurrency: u32,
-) -> Result<js_sys::Promise, JsValue> {
-    let thread_pool = build_thread_pool(&worker_pool, concurrency as usize)?;
+) -> Vec<u8> {
     let input: ExpProofInput<Secp256k1, Tom256k1> =
-        input.into_serde().map_err(|e| e.to_string())?;
+        input.into_serde().map_err(|e| e.to_string()).unwrap();
     let security_param = 60_usize; // TODO
-    let (tx, rx) = oneshot::channel();
-    worker_pool.run(move || {
-        thread_pool.install(|| {
-            let aux_vec: Vec<AuxiliaryCommitments<Secp256k1, Tom256k1>> = (0..security_param)
-                .into_par_iter()
-                .map(|_| {
-                    //std::thread::sleep(std::time::Duration::from_secs(1));
-                    let mut rng = OsRng;
-                    // exponent
-                    let mut alpha = Scalar::ZERO;
-                    while alpha == Scalar::ZERO {
-                        // ensure alpha is non-zero
-                        alpha = Scalar::random(&mut rng);
-                    }
-                    // random r scalars
-                    let r = Scalar::random(&mut rng);
-                    // T = g^alpha
-                    let t: AffinePoint<Secp256k1> = (&input.r_point * alpha).into();
-                    // A = g^alpha + h^r (essentially a commitment in the base curve)
-                    let a = &t + &(input.pedersen.base().generator() * r).to_affine();
-                    // commitment to Tx
-                    let tx = input
-                        .pedersen
-                        .cycle()
-                        .commit(&mut rng, t.x().to_cycle_scalar());
-                    // commitment to Ty
-                    let ty = input
-                        .pedersen
-                        .cycle()
-                        .commit(&mut rng, t.y().to_cycle_scalar());
+                                   //let aux_vec: Vec<AuxiliaryCommitments<Secp256k1, Tom256k1>> = (0..security_param)
+    (0..security_param)
+        .into_par_iter()
+        .map(|_| {
+            //std::thread::sleep(std::time::Duration::from_secs(1));
+            let mut rng = OsRng;
+            // exponent
+            let mut alpha = Scalar::ZERO;
+            while alpha == Scalar::ZERO {
+                // ensure alpha is non-zero
+                alpha = Scalar::random(&mut rng);
+            }
+            // random r scalars
+            let r = Scalar::random(&mut rng);
+            // T = g^alpha
+            let t: AffinePoint<Secp256k1> = (&input.r_point * alpha).into();
+            // A = g^alpha + h^r (essentially a commitment in the base curve)
+            let a = &t + &(input.pedersen.base().generator() * r).to_affine();
+            // commitment to Tx
+            let tx = input
+                .pedersen
+                .cycle()
+                .commit(&mut rng, t.x().to_cycle_scalar());
+            // commitment to Ty
+            let ty = input
+                .pedersen
+                .cycle()
+                .commit(&mut rng, t.y().to_cycle_scalar());
 
-                    AuxiliaryCommitments {
-                        alpha,
-                        r,
-                        a,
-                        t,
-                        tx,
-                        ty,
-                    }
-                })
-                .collect();
-            drop(tx.send(aux_vec))
-        });
-    })?;
-
-    let done = async move {
-        match rx.await {
-            Ok(i) => Ok(JsValue::from("success")),
-            Err(e) => Err(JsValue::from(e.to_string())),
-        }
-    };
-
-    Ok(wasm_bindgen_futures::future_to_promise(done))
+            //AuxiliaryCommitments {
+            //    alpha,
+            //    r,
+            //    a,
+            //    t,
+            //    tx,
+            //    ty,
+            //}
+            12_u8
+        })
+        .collect()
 }
-
-//let done = async move {
-//    match proof.await {
-//        Ok(p) => JsValue::from_serde(&p).map_err(|e| e.to_string().into()),
-//        Err(e) => Err(JsValue::from(e.to_string())),
-//    }
-//};
-
-//Ok(wasm_bindgen_futures::future_to_promise(done))
-
-//    let ring: ParsedRing<Tom256k1> =
-//        parse_ring(ring.into_serde::<Ring>().map_err(|e| e.to_string())?)?;
-//
-//    let thread_pool = build_thread_pool(&worker_pool)?;

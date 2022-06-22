@@ -1,3 +1,4 @@
+/*
 const button = document.getElementById('render');
 const text = document.getElementById('text');
 const concurrency = document.getElementById('concurrency');
@@ -96,3 +97,37 @@ function process(zkpInput) {
   }
   rendering = new State(generateExpProof(expInput, pool, concurrency.value));
 }
+*/
+
+import * as Comlink from 'comlink';
+
+const text = document.getElementById('text');
+const timeOutput = document.getElementById('time');
+const { generateExpInput } = await import("zkp-wasm");
+
+(async function init() {
+  let handlers = await Comlink.wrap(
+    new Worker(new URL('./worker.js', import.meta.url), {
+      type: 'module'
+    })
+  ).handlers;
+
+  const raw_input = JSON.parse(text.value);
+  const input = generateExpInput();
+
+  function setupBtn(id) {
+    let handler = handlers[id];
+    Object.assign(document.getElementById(id), {
+      async onclick() {
+        let { proof, time } = await handler({
+          input
+        });
+        timeOutput.value = `${time.toFixed(2)} ms`;
+      },
+      disabled: false
+    });
+  }
+
+  setupBtn('compute');
+  console.log("nice");
+})();

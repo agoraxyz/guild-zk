@@ -30,13 +30,13 @@ import * as Comlink from 'comlink';
 
 // Wrap wasm-bindgen exports (the `generate` function) to add time measurement.
 function wrapExports({ generateExpProof }) {
-  return ({ width, height, maxIterations }) => {
+  return ({ input }) => {
     const start = performance.now();
-    const rawImageData = generateExpProof(width, height, maxIterations);
+    const proof = generateExpProof(input);
     const time = performance.now() - start;
     return {
       // Little perf boost to transfer data to the main thread w/o copying.
-      rawImageData: Comlink.transfer(rawImageData, [rawImageData.buffer]),
+      proof: Comlink.transfer(proof, [proof.buffer]),
       time
     };
   };
@@ -45,7 +45,7 @@ function wrapExports({ generateExpProof }) {
 async function initHandlers() {
     (async () => {
       const multiThread = await import(
-        './pkg-parallel/wasm_bindgen_rayon_demo.js'
+        './zkp-wasm/tom256.js'
       );
       await multiThread.default();
       await multiThread.initThreadPool(navigator.hardwareConcurrency);
