@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         pubkey,
         signature,
         index: 1,
-        guild_id: "körtefa".to_string(),
+        guild_id: "almafa".to_string(),
     };
 
     let parsed_input: ParsedProofInput<Secp256k1> = proof_input.try_into()?;
