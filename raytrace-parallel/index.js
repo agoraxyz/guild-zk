@@ -19,7 +19,7 @@ function loadWasm() {
 
 loadWasm();
 
-const { Scene, WorkerPool } = wasm_bindgen;
+const { renderScene, WorkerPool } = wasm_bindgen;
 
 function run() {
   // The maximal concurrency of our web worker pool is `hardwareConcurrency`,
@@ -40,7 +40,7 @@ function run() {
     }
     canvas.width = json.width;
     canvas.height = json.height;
-    render(new Scene(json));
+    render(json);
   };
   button.innerText = 'Render!';
   button.disabled = false;
@@ -101,5 +101,5 @@ function render(scene) {
     rendering.stop();
     rendering = null;
   }
-  rendering = new State(scene.render(parseInt(concurrency.value), pool));
+  rendering = new State(renderScene(scene, parseInt(concurrency.value), pool));
 }

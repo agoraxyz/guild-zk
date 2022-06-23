@@ -2,33 +2,18 @@ declare namespace wasm_bindgen {
 	/* tslint:disable */
 	/* eslint-disable */
 	/**
+	* @param {any} scene
+	* @param {number} concurrency
+	* @param {WorkerPool} pool
+	* @returns {Promise<any>}
+	*/
+	export function renderScene(scene: any, concurrency: number, pool: WorkerPool): Promise<any>;
+	/**
 	* Entry point invoked by `worker.js`, a bit of a hack but see the "TODO" above
 	* about `worker.js` in general.
 	* @param {number} ptr
 	*/
 	export function child_entry_point(ptr: number): void;
-	/**
-	*/
-	export class Scene {
-	  free(): void;
-	/**
-	* Creates a new scene from the JSON description in `object`, which we
-	* deserialize here into an actual scene.
-	* @param {any} object
-	*/
-	  constructor(object: any);
-	/**
-	* Renders this scene with the provided concurrency and worker pool.
-	*
-	* This will spawn up to `concurrency` workers which are loaded from or
-	* spawned into `pool`. The `RenderingScene` state contains information to
-	* get notifications when the render has completed.
-	* @param {number} concurrency
-	* @param {WorkerPool} pool
-	* @returns {Promise<any>}
-	*/
-	  render(concurrency: number, pool: WorkerPool): Promise<any>;
-	}
 	/**
 	*/
 	export class WorkerPool {
@@ -54,9 +39,7 @@ declare namespace wasm_bindgen {
 declare type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 declare interface InitOutput {
-  readonly __wbg_scene_free: (a: number) => void;
-  readonly scene_new: (a: number, b: number) => void;
-  readonly scene_render: (a: number, b: number, c: number, d: number) => void;
+  readonly renderScene: (a: number, b: number, c: number, d: number) => void;
   readonly __wbg_workerpool_free: (a: number) => void;
   readonly workerpool_new: (a: number, b: number) => void;
   readonly child_entry_point: (a: number, b: number) => void;
@@ -67,7 +50,6 @@ declare interface InitOutput {
   readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hce9452776da26be2: (a: number, b: number, c: number) => void;
   readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h41eae2a0743698f1: (a: number, b: number, c: number) => void;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
-  readonly __wbindgen_free: (a: number, b: number) => void;
   readonly __wbindgen_exn_store: (a: number) => void;
   readonly wasm_bindgen__convert__closures__invoke2_mut__hb8dee17407801c85: (a: number, b: number, c: number, d: number) => void;
   readonly __wbindgen_thread_destroy: () => void;

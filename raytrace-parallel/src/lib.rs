@@ -18,85 +18,63 @@ extern "C" {
     fn logv(x: &JsValue);
 }
 
-#[wasm_bindgen]
-pub struct Scene {
-    inner: raytracer::scene::Scene,
-}
+#[wasm_bindgen(js_name = "renderScene")]
+pub fn render_scene(
+    scene: JsValue,
+    concurrency: usize,
+    pool: &pool::WorkerPool,
+) -> Result<js_sys::Promise, JsValue> {
+    let scene: raytracer::scene::Scene = scene
+        .into_serde()
+        .map_err(|e| JsValue::from(e.to_string()))?;
+    let height = scene.height;
+    let width = scene.width;
 
-#[wasm_bindgen]
-impl Scene {
-    /// Creates a new scene from the JSON description in `object`, which we
-    /// deserialize here into an actual scene.
-    #[wasm_bindgen(constructor)]
-    pub fn new(object: &JsValue) -> Result<Scene, JsValue> {
-        console_error_panic_hook::set_once();
-        Ok(Scene {
-            inner: object
-                .into_serde()
-                .map_err(|e| JsValue::from(e.to_string()))?,
-        })
-    }
+    // Allocate the pixel data which our threads will be writing into.
+    let pixels = (width * height) as usize;
+    let mut rgb_data = vec![0; 4 * pixels];
+    let base = rgb_data.as_ptr() as usize;
+    let len = rgb_data.len();
 
-    /// Renders this scene with the provided concurrency and worker pool.
-    ///
-    /// This will spawn up to `concurrency` workers which are loaded from or
-    /// spawned into `pool`. The `RenderingScene` state contains information to
-    /// get notifications when the render has completed.
-    pub fn render(
-        self,
-        concurrency: usize,
-        pool: &pool::WorkerPool,
-    ) -> Result<js_sys::Promise, JsValue> {
-        let scene = self.inner;
-        let height = scene.height;
-        let width = scene.width;
+    // Configure a rayon thread pool which will pull web workers from
+    // `pool`.
+    let thread_pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(concurrency)
+        .spawn_handler(|thread| Ok(pool.run(|| thread.run()).unwrap()))
+        .build()
+        .unwrap();
 
-        // Allocate the pixel data which our threads will be writing into.
-        let pixels = (width * height) as usize;
-        let mut rgb_data = vec![0; 4 * pixels];
-        let base = rgb_data.as_ptr() as usize;
-        let len = rgb_data.len();
+    // And now execute the render! The entire render happens on our worker
+    // threads so we don't lock up the main thread, so we ship off a thread
+    // which actually does the whole rayon business. When our returned
+    // future is resolved we can pull out the final version of the image.
+    let (tx, rx) = oneshot::channel();
+    pool.run(move || {
+        thread_pool.install(|| {
+            rgb_data
+                .par_chunks_mut(4)
+                .enumerate()
+                .for_each(|(i, chunk)| {
+                    let i = i as u32;
+                    let x = i % width;
+                    let y = i / width;
+                    let ray = raytracer::Ray::create_prime(x, y, &scene);
+                    let result = raytracer::cast_ray(&scene, &ray, 0).to_rgba();
+                    chunk[0] = result.data[0];
+                    chunk[1] = result.data[1];
+                    chunk[2] = result.data[2];
+                    chunk[3] = result.data[3];
+                });
+        });
+        drop(tx.send(rgb_data));
+    })?;
 
-        // Configure a rayon thread pool which will pull web workers from
-        // `pool`.
-        let thread_pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(concurrency)
-            .spawn_handler(|thread| Ok(pool.run(|| thread.run()).unwrap()))
-            .build()
-            .unwrap();
+    let done = async move {
+        match rx.await {
+            Ok(_data) => Ok(JsValue::from(15_u32)),
+            Err(_) => Err(JsValue::undefined()),
+        }
+    };
 
-        // And now execute the render! The entire render happens on our worker
-        // threads so we don't lock up the main thread, so we ship off a thread
-        // which actually does the whole rayon business. When our returned
-        // future is resolved we can pull out the final version of the image.
-        let (tx, rx) = oneshot::channel();
-        pool.run(move || {
-            thread_pool.install(|| {
-                rgb_data
-                    .par_chunks_mut(4)
-                    .enumerate()
-                    .for_each(|(i, chunk)| {
-                        let i = i as u32;
-                        let x = i % width;
-                        let y = i / width;
-                        let ray = raytracer::Ray::create_prime(x, y, &scene);
-                        let result = raytracer::cast_ray(&scene, &ray, 0).to_rgba();
-                        chunk[0] = result.data[0];
-                        chunk[1] = result.data[1];
-                        chunk[2] = result.data[2];
-                        chunk[3] = result.data[3];
-                    });
-            });
-            drop(tx.send(rgb_data));
-        })?;
-
-        let done = async move {
-            match rx.await {
-                Ok(_data) => Ok(JsValue::from(15_u32)),
-                Err(_) => Err(JsValue::undefined()),
-            }
-        };
-
-        Ok(wasm_bindgen_futures::future_to_promise(done))
-    }
+    Ok(wasm_bindgen_futures::future_to_promise(done))
 }
