@@ -2,6 +2,7 @@
 members = [
 #	"ecdsa-zkp",
 #	"merkle-tree-example",
+	"raytrace-parallel",
 	"tom256",
 ]
 
