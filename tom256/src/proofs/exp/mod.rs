@@ -11,6 +11,8 @@ use crate::pedersen::*;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
+pub use auxiliary::*;
+
 #[derive(Clone)]
 pub struct ExpSecrets<C: Curve> {
     point: AffinePoint<C>,

@@ -16,7 +16,7 @@ function loadWasm() {
 
 loadWasm();
 
-const { generateProof, WorkerPool} = wasm_bindgen;
+const { generateAux, WorkerPool} = wasm_bindgen;
 
 function run() {
   // use max num of threads
@@ -87,5 +87,5 @@ function process(zkpInput) {
     rendering.stop();
     rendering = null;
   }
-  rendering = new State(generateProof(zkpInput.input, zkpInput.ring, pool));
+  rendering = new State(generateAux(zkpInput.input, pool, concurrency.value));
 }

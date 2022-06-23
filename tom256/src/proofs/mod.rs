@@ -6,7 +6,7 @@ mod point_add;
 mod utils;
 
 // TODO these does not need to be public
-pub use exp::{ExpCommitmentPoints, ExpCommitments, ExpProof, ExpSecrets};
+pub use exp::*;
 pub use membership::MembershipProof;
 
 use crate::arithmetic::{Modular, Point, Scalar};
