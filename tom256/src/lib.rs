@@ -86,6 +86,7 @@ pub async fn generate_proof(
 }
 */
 
+/*
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_name = "generateAux")]
 pub fn generate_aux(
@@ -122,49 +123,45 @@ pub fn generate_aux(
         .commit(&mut rng, input.pubkey.y().to_cycle_scalar());
 
     let security_param = 60_usize;
+    let mut aux_vec = vec![0; security_param];
     let (tx, rx) = oneshot::channel();
     // auxiliary parameters
-    worker_pool
-        .run(move || {
-            thread_pool.install(|| {
-                //let aux_vec: Vec<AuxiliaryCommitments<C, CC>> = (0..security_param)
-                let aux_vec: Vec<u8> = (0..security_param)
-                    .into_par_iter()
-                    .map(|_| {
-                        //std::thread::sleep(std::time::Duration::from_secs(1));
-                        let mut rng = rng;
-                        // exponent
-                        let mut alpha = Scalar::ZERO;
-                        while alpha == Scalar::ZERO {
-                            // ensure alpha is non-zero
-                            alpha = Scalar::random(&mut rng);
-                        }
-                        // random r scalars
-                        let r = Scalar::random(&mut rng);
-                        // T = g^alpha
-                        let t: AffinePoint<Secp256k1> = (&r_point * alpha).into();
-                        // A = g^alpha + h^r (essentially a commitment in the base curve)
-                        let a = &t + &(pedersen.base().generator() * r).to_affine();
+    worker_pool.run(move || {
+        thread_pool.install(|| {
+            //let aux_vec: Vec<AuxiliaryCommitments<C, CC>> = (0..security_param)
+                aux_vec.par_iter_mut().for_each(|elem| {
+                    let mut rng = rng;
+                    // exponent
+                    let mut alpha = Scalar::ZERO;
+                    while alpha == Scalar::ZERO {
+                        // ensure alpha is non-zero
+                        alpha = Scalar::random(&mut rng);
+                    }
+                    // random r scalars
+                    let r = Scalar::random(&mut rng);
+                    // T = g^alpha
+                    let t: AffinePoint<Secp256k1> = (&r_point * alpha).into();
+                    // A = g^alpha + h^r (essentially a commitment in the base curve)
+                    let a = &t + &(pedersen.base().generator() * r).to_affine();
 
-                        // commitment to Tx
-                        //let tx = pedersen.cycle().commit(&mut rng, t.x().to_cycle_scalar());
-                        // commitment to Ty
-                        //let ty = pedersen.cycle().commit(&mut rng, t.y().to_cycle_scalar());
+                    // commitment to Tx
+                    //let tx = pedersen.cycle().commit(&mut rng, t.x().to_cycle_scalar());
+                    // commitment to Ty
+                    //let ty = pedersen.cycle().commit(&mut rng, t.y().to_cycle_scalar());
 
-                        //let _aux = AuxiliaryCommitments {
-                        //    alpha,
-                        //    r,
-                        //    a,
-                        //    t,
-                        //    tx,
-                        //    ty,
-                        //};
-                        12_u8
-                    })
-                    .collect();
-                drop(tx.send(aux_vec))
-            });
-        })?;
+                    //let _aux = AuxiliaryCommitments {
+                    //    alpha,
+                    //    r,
+                    //    a,
+                    //    t,
+                    //    tx,
+                    //    ty,
+                    //};
+                    *elem = 12_u8
+                });
+        });
+        drop(tx.send(aux_vec))
+    })?;
 
     let done = async move {
         match rx.await {
@@ -175,3 +172,4 @@ pub fn generate_aux(
 
     Ok(wasm_bindgen_futures::future_to_promise(done))
 }
+*/
