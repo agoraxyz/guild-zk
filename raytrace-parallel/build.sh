@@ -19,7 +19,7 @@ RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
 # the memory import to each wasm module.
 wasm-bindgen \
   ../target/wasm32-unknown-unknown/release/raytrace_parallel.wasm \
-  --out-dir . \
+  --out-dir wasm-test \
   --target no-modules
 
 python3 server.py
