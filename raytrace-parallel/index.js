@@ -70,11 +70,11 @@ class State {
 
     this.interval = setInterval(() => this.updateTimer(true), 100);
 
-    wasm.promise()
+    wasm
       .then(data => {
         this.updateTimer(false);
-        this.updateImage(data);
         this.stop();
+        console.log(data)
       })
       .catch(console.error);
   }
@@ -83,13 +83,6 @@ class State {
     const dur = performance.now() - this.start;
     timingVal.innerText = `${dur}ms`;
     this.counter += 1;
-
-    if (updateImage && this.wasm && this.counter % 3 == 0)
-      this.updateImage(this.wasm.imageSoFar());
-  }
-
-  updateImage(data) {
-    ctx.putImageData(data, 0, 0);
   }
 
   stop() {
