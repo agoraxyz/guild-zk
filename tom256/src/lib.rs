@@ -8,15 +8,16 @@ macro_rules! console_log {
 
 pub mod arithmetic;
 pub mod curve;
-mod hasher;
+pub mod hasher;
 pub mod parse;
 pub mod pedersen;
-pub mod proofs;
-#[cfg(target_arch = "wasm32")]
-mod worker_pool;
+//pub mod proofs;
+//#[cfg(target_arch = "wasm32")]
+//mod worker_pool;
 
-use arithmetic::*;
 pub use bigint::U256;
+/*
+use arithmetic::*;
 #[cfg(target_arch = "wasm32")]
 use curve::{Secp256k1, Tom256k1};
 #[cfg(target_arch = "wasm32")]
@@ -56,6 +57,7 @@ extern "C" {
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     fn logv(x: &JsValue);
 }
+*/
 
 /*
 #[cfg(target_arch = "wasm32")]

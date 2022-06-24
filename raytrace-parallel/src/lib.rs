@@ -1,6 +1,8 @@
 use futures_channel::oneshot;
 use js_sys::{Promise, Uint8ClampedArray, WebAssembly};
 use rayon::prelude::*;
+use tom256::curve::*;
+use tom256::parse::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -20,10 +22,15 @@ extern "C" {
 
 #[wasm_bindgen(js_name = "renderScene")]
 pub fn render_scene(
-    scene: JsValue,
+    input: JsValue,
     concurrency: usize,
     pool: &pool::WorkerPool,
 ) -> Result<js_sys::Promise, JsValue> {
+    let input: ParsedProofInput<Secp256k1> = input
+        .into_serde::<ProofInput>()
+        .map_err(|e| e.to_string())?
+        .try_into()?;
+
     // Allocate the pixel data which our threads will be writing into.
     let mut rgb_data = vec![0; 400];
 

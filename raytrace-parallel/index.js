@@ -101,5 +101,5 @@ function render(scene) {
     rendering.stop();
     rendering = null;
   }
-  rendering = new State(renderScene(scene, parseInt(concurrency.value), pool));
+  rendering = new State(renderScene(scene.input, parseInt(concurrency.value), pool));
 }
