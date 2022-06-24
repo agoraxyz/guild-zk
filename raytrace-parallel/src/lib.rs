@@ -25,7 +25,7 @@ pub fn render_scene(
     pool: &pool::WorkerPool,
 ) -> Result<js_sys::Promise, JsValue> {
     // Allocate the pixel data which our threads will be writing into.
-    let mut rgb_data = vec![0; 4 * 12000];
+    let mut rgb_data = vec![0; 400];
 
     // Configure a rayon thread pool which will pull web workers from
     // `pool`.
@@ -46,6 +46,7 @@ pub fn render_scene(
                 .par_chunks_mut(4)
                 .enumerate()
                 .for_each(|(i, chunk)| {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
                     chunk[0] = 1;
                     chunk[1] = 2;
                     chunk[2] = 3;
@@ -57,7 +58,7 @@ pub fn render_scene(
 
     let done = async move {
         match rx.await {
-            Ok(_data) => Ok(JsValue::from(15_u32)),
+            Ok(data) => Ok(JsValue::from(Uint8ClampedArray::from(data.as_slice()))),
             Err(_) => Err(JsValue::undefined()),
         }
     };
