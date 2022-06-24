@@ -3,6 +3,7 @@ use js_sys::{Promise, Uint8ClampedArray, WebAssembly};
 use rayon::prelude::*;
 use tom256::curve::*;
 use tom256::parse::*;
+use tom256::pedersen::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -30,6 +31,8 @@ pub fn render_scene(
         .into_serde::<ProofInput>()
         .map_err(|e| e.to_string())?
         .try_into()?;
+    let mut rng = rand_core::OsRng;
+    let pedersen = PedersenCycle::<Secp256k1, Tom256k1>::new(&mut rng);
 
     // Allocate the pixel data which our threads will be writing into.
     let mut rgb_data = vec![0; 400];
