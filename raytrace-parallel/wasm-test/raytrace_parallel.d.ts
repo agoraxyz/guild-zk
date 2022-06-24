@@ -2,18 +2,18 @@ declare namespace wasm_bindgen {
 	/* tslint:disable */
 	/* eslint-disable */
 	/**
+	* Entry point invoked by `worker.js`, a bit of a hack but see the "TODO" above
+	* about `worker.js` in general.
+	* @param {number} ptr
+	*/
+	export function child_entry_point(ptr: number): void;
+	/**
 	* @param {any} input
 	* @param {number} concurrency
 	* @param {WorkerPool} pool
 	* @returns {Promise<any>}
 	*/
 	export function renderScene(input: any, concurrency: number, pool: WorkerPool): Promise<any>;
-	/**
-	* Entry point invoked by `worker.js`, a bit of a hack but see the "TODO" above
-	* about `worker.js` in general.
-	* @param {number} ptr
-	*/
-	export function child_entry_point(ptr: number): void;
 	/**
 	*/
 	export class WorkerPool {
@@ -39,10 +39,10 @@ declare namespace wasm_bindgen {
 declare type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 declare interface InitOutput {
-  readonly renderScene: (a: number, b: number, c: number, d: number) => void;
   readonly __wbg_workerpool_free: (a: number) => void;
   readonly workerpool_new: (a: number, b: number) => void;
   readonly child_entry_point: (a: number, b: number) => void;
+  readonly renderScene: (a: number, b: number, c: number, d: number) => void;
   readonly memory: WebAssembly.Memory;
   readonly __wbindgen_malloc: (a: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number) => number;

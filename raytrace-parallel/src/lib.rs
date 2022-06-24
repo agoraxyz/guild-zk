@@ -1,6 +1,7 @@
 use futures_channel::oneshot;
 use js_sys::{Promise, Uint8ClampedArray, WebAssembly};
 use rayon::prelude::*;
+use tom256::arithmetic::*;
 use tom256::curve::*;
 use tom256::parse::*;
 use tom256::pedersen::*;
@@ -45,6 +46,8 @@ pub fn render_scene(
         .build()
         .unwrap();
 
+    let r_point = &Point::<Secp256k1>::GENERATOR * Scalar::<Secp256k1>::random(&mut rng);
+
     // And now execute the render! The entire render happens on our worker
     // threads so we don't lock up the main thread, so we ship off a thread
     // which actually does the whole rayon business. When our returned
@@ -56,6 +59,17 @@ pub fn render_scene(
                 .par_chunks_mut(4)
                 .enumerate()
                 .for_each(|(i, chunk)| {
+                    let mut alpha = Scalar::ZERO;
+                    while alpha == Scalar::ZERO {
+                        // ensure alpha is non-zero
+                        alpha = Scalar::ONE;
+                    }
+                    // random r scalars
+                    let r = Scalar::ONE;
+                    // T = g^alpha
+                    let t: AffinePoint<Secp256k1> = (&r_point * alpha).into();
+                    // A = g^alpha + h^r (essentially a commitment in the base curve)
+                    let a = &t + &(pedersen.base().generator() * r).to_affine();
                     std::thread::sleep(std::time::Duration::from_millis(10));
                     chunk[0] = 1;
                     chunk[1] = 2;

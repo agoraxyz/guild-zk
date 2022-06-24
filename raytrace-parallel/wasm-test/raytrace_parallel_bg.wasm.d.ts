@@ -1,9 +1,9 @@
 /* tslint:disable */
 /* eslint-disable */
-export function renderScene(a: number, b: number, c: number, d: number): void;
 export function __wbg_workerpool_free(a: number): void;
 export function workerpool_new(a: number, b: number): void;
 export function child_entry_point(a: number, b: number): void;
+export function renderScene(a: number, b: number, c: number, d: number): void;
 export const memory: WebAssembly.Memory;
 export function __wbindgen_malloc(a: number): number;
 export function __wbindgen_realloc(a: number, b: number, c: number): number;
