@@ -12,7 +12,7 @@ futures-channel = "0.3"
 js-sys = "0.3"
 num-bigint = { package = "num-bigint", version = "0.4.3", default-features = false }
 num-integer = { version = "0.1", default-features = false }
-rand_core = { version = "0.6.3", default-features = false }
+rand_core = { version = "0.6.3", default-features = false, features = ["getrandom"] }
 rayon = "1.5"
 getrandom = { version = "0.2", features = ["js"] }
 serde = { version = "1", features = ["derive"], default-features = false }

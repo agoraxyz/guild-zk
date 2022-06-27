@@ -1,6 +1,9 @@
 use futures_channel::oneshot;
 use js_sys::{Promise, Uint8ClampedArray, WebAssembly};
 use rayon::prelude::*;
+use tom256::arithmetic::*;
+use tom256::curve::*;
+use tom256::Encoding;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -76,15 +79,22 @@ impl Scene {
                     .par_chunks_mut(4)
                     .enumerate()
                     .for_each(|(i, chunk)| {
+                        let a = Scalar::<Tom256k1>::ONE + Scalar::<Tom256k1>::ONE;
+                        let b = (a + Scalar::<Tom256k1>::ONE) * a;
+                        let c = (b + a) * a;
+                        let h = &Point::<Tom256k1>::GENERATOR * a;
+                        let com = h.double_mul(&b, &Point::GENERATOR, &c);
+
+                        let cx_bytes = com.x().inner().to_le_bytes();
                         let i = i as u32;
                         let x = i % width;
                         let y = i / width;
                         let ray = raytracer::Ray::create_prime(x, y, &scene);
                         let result = raytracer::cast_ray(&scene, &ray, 0).to_rgba();
-                        chunk[0] = result.data[0];
-                        chunk[1] = result.data[1];
-                        chunk[2] = result.data[2];
-                        chunk[3] = result.data[3];
+                        chunk[0] = (result.data[0] + cx_bytes[0]).min(u8::MAX);
+                        chunk[1] = (result.data[1] + cx_bytes[1]).min(u8::MAX);
+                        chunk[2] = (result.data[2] + cx_bytes[2]).min(u8::MAX);
+                        chunk[3] = (result.data[3] + cx_bytes[3]).min(u8::MAX);
                     });
             });
             drop(tx.send(rgb_data));
