@@ -1,8 +1,7 @@
 [workspace]
 members = [
-#	"ecdsa-zkp",
-#	"merkle-tree-example",
-	"tom256",
+	"agora-zkp-ecdsa",
+	"agora-zkp-triptych",
 ]
 
 [profile.dev]
