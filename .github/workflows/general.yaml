@@ -25,9 +25,6 @@ jobs:
           profile: minimal
 
       - uses: actions/checkout@v2
-      - name: Install dependencies
-        run: |
-          cargo install wasm-pack
 
       - name: build
         run: cargo build --color=always --all-targets --all-features
@@ -41,7 +38,32 @@ jobs:
       - name: test-rust
         run: cargo t --color=always
 
-      - name: test-wasm-js
+  wasm-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          profile: minimal
+
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: cargo install wasm-pack
+
+      - name: test-ecdsa
         run: |
-          cd tom256
-          wasm-pack build
+          cd agora-zkp-ecdsa
+          wasm-pack build --target nodejs
+          cd wasm-test
+          npm install -g ts-node
+          ts-node index.ts
+
+      - name: test-zkp-triptych
+        run: |
+          cd agora-zkp-triptych
+          wasm-pack build --target nodejs
+          cd wasm-test
+          npm install -g ts-node
+          ts-node index.ts

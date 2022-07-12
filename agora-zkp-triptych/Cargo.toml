@@ -1,0 +1,18 @@
+[package]
+name = "agora-zkp-triptych"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+generic-array = "0.14"
+getrandom = { version = "0.2", features = ["js"] }
+hex = "0.4"
+k256 = { version = "0.11", default-features = false, features = ["arithmetic", "pem", "pkcs8", "serde"] }
+rand_core = { version = "0.6.3", default-features = false, features = ["getrandom"] }
+serde = { version = "1", features = ["derive"] }
+sha3 = "0.10"
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+zeroize = "1.5.6"
